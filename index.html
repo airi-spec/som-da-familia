@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+  <meta name="theme-color" content="#0b0b0f" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="description" content="Som da Família — player de música com playlists e perfis" />
+    <script>
+    // Base path for GitHub Pages subpath (/som-da-familia/) or root hosts
+    (function () {
+      var p = location.pathname;
+      if (p.endsWith('.html')) p = p.slice(0, p.lastIndexOf('/') + 1);
+      else if (!p.endsWith('/')) p = p.slice(0, p.lastIndexOf('/') + 1);
+      window.__SDF_BASE__ = p || '/';
+      var b = document.createElement('base');
+      b.href = window.__SDF_BASE__;
+      document.head.insertBefore(b, document.head.firstChild);
+    })();
+  </script>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="icon" type="image/png" href="icons/icon-192.png" />
+  <title>Som da Família</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Seletor de perfil -->
+    <section id="view-profiles" class="view active" aria-label="Perfis">
+      <header class="hero">
+        <div class="logo-mark" aria-hidden="true">♪</div>
+        <h1>Som da Família</h1>
+        <p>Quem está ouvindo?</p>
+      </header>
+      <div id="profile-grid" class="profile-grid"></div>
+      <button type="button" id="btn-add-profile" class="btn ghost block">+ Novo perfil</button>
+    </section>
+
+    <!-- App principal -->
+    <section id="view-main" class="view" hidden>
+      <header class="topbar">
+        <button type="button" id="btn-switch-profile" class="avatar-btn" title="Trocar perfil" aria-label="Trocar perfil">A</button>
+        <div class="topbar-text">
+          <span class="eyebrow">Olá,</span>
+          <strong id="current-profile-name">—</strong>
+        </div>
+        <button type="button" id="btn-credits" class="icon-btn" title="Créditos" aria-label="Créditos">ℹ</button>
+      </header>
+
+      <nav class="tabs" role="tablist">
+        <button type="button" class="tab active" data-tab="home" role="tab" aria-selected="true">Início</button>
+        <button type="button" class="tab" data-tab="search" role="tab">Buscar</button>
+        <button type="button" class="tab" data-tab="playlists" role="tab">Playlists</button>
+        <button type="button" class="tab" data-tab="favorites" role="tab">Favoritos</button>
+        <button type="button" class="tab" data-tab="sertanejo" role="tab">Top 50</button>
+      </nav>
+
+      <main id="content" class="content">
+        <!-- Início -->
+        <div id="tab-home" class="tab-panel active">
+          <h2 class="section-title">Biblioteca</h2>
+          <p class="muted">Músicas livres para a família curtir juntos.</p>
+          <div class="import-box">
+            <label class="btn small block import-label">
+              + Importar MP3 do celular
+              <input id="import-audio" type="file" accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg" multiple hidden />
+            </label>
+            <p class="muted tiny">Arquivos ficam só neste aparelho (IndexedDB). Dá para ouvir offline e com a tela bloqueada.</p>
+          </div>
+          <h3 class="section-subtitle" id="imports-heading" hidden>Minhas músicas</h3>
+          <ul id="imports-list" class="track-list" aria-label="Músicas importadas"></ul>
+          <h3 class="section-subtitle">Livres (SoundHelix)</h3>
+          <ul id="track-list" class="track-list" aria-label="Lista de músicas"></ul>
+        </div>
+
+        <!-- Busca -->
+        <div id="tab-search" class="tab-panel" hidden>
+          <label class="search-wrap">
+            <span class="sr-only">Buscar músicas</span>
+            <input id="search-input" type="search" placeholder="Buscar por título, artista ou humor…" autocomplete="off" />
+          </label>
+          <ul id="search-results" class="track-list" aria-label="Resultados da busca"></ul>
+        </div>
+
+        <!-- Playlists -->
+        <div id="tab-playlists" class="tab-panel" hidden>
+          <div class="row-between">
+            <h2 class="section-title">Suas playlists</h2>
+            <button type="button" id="btn-new-playlist" class="btn small">+ Criar</button>
+          </div>
+          <ul id="playlist-list" class="playlist-list"></ul>
+          <div id="playlist-detail" hidden>
+            <button type="button" id="btn-back-playlists" class="btn ghost small">← Voltar</button>
+            <h2 id="playlist-detail-title" class="section-title"></h2>
+            <ul id="playlist-tracks" class="track-list"></ul>
+            <button type="button" id="btn-delete-playlist" class="btn danger block">Excluir playlist</button>
+          </div>
+        </div>
+
+        <!-- Favoritos -->
+        <div id="tab-favorites" class="tab-panel" hidden>
+          <h2 class="section-title">Favoritos</h2>
+          <ul id="favorites-list" class="track-list" aria-label="Favoritos"></ul>
+          <p id="favorites-empty" class="muted empty-hint">Toque no ♥ de uma música para salvá-la aqui.</p>
+        </div>
+
+
+        <!-- Top 50 Sertanejo -->
+        <div id="tab-sertanejo" class="tab-panel" hidden>
+          <h2 class="section-title">Top 50 Sertanejo</h2>
+          <p id="sertanejo-source" class="muted tiny"></p>
+          <p class="muted tiny warn-copy">Streaming pelo YouTube (oficial). Toque para tocar na fila Top 50.</p>
+          <p class="muted tiny warn-copy">⚠ Essas músicas só tocam com o app aberto (não funcionam com a tela bloqueada nem offline).</p>
+          <ul id="sertanejo-list" class="chart-list" aria-label="Top 50 Sertanejo"></ul>
+        </div>
+
+        <!-- Créditos -->
+        <div id="tab-credits" class="tab-panel" hidden>
+          <button type="button" id="btn-back-credits" class="btn ghost small">← Voltar</button>
+          <h2 class="section-title">Créditos e licenças</h2>
+          <p class="muted">Todas as faixas usadas neste app são gratuitas e liberadas para uso demonstrativo. Nenhuma marca ou catálogo comercial é reproduzido.</p>
+          <ul id="credits-list" class="credits-list"></ul>
+          <p id="credits-chart-note" class="muted tiny"></p>
+          <p class="muted tiny">Som da Família — app pessoal da família Basso. Feito com carinho.</p>
+        </div>
+      </main>
+
+
+      <!-- Tela "Tocando agora" (capa grande). YT fica mínimo/atrás — NÃO use display:none (iOS). -->
+      <section id="now-stage" class="now-stage" hidden aria-label="Tocando agora">
+        <div class="now-stage-art-wrap">
+          <img id="now-stage-art" class="now-stage-art" alt="" />
+          <!-- Player YouTube mínimo: 1x1 CSS mas opacity>0 e no fluxo/stacking — iOS exige "visível" -->
+          <div id="yt-player-dock" class="yt-dock-mini" aria-hidden="true">
+            <div id="yt-player-host"></div>
+          </div>
+        </div>
+        <h2 id="now-stage-title" class="now-stage-title">—</h2>
+        <p id="now-stage-artist" class="now-stage-artist muted">—</p>
+        <a id="yt-open-external" class="yt-open-ext" href="#" target="_blank" rel="noopener noreferrer">Abrir no YouTube</a>
+      </section>
+
+
+      <!-- Player fixo -->
+      <footer id="player" class="player" aria-label="Player">
+        <div class="player-progress">
+          <input id="seek" type="range" min="0" max="1000" value="0" aria-label="Progresso" />
+        </div>
+        <div class="player-body">
+          <div class="now-art" id="now-art" aria-hidden="true">♪</div>
+          <div class="now-meta">
+            <strong id="now-title">Nenhuma faixa</strong>
+            <span id="now-artist" class="muted">Escolha uma música</span>
+          </div>
+          <button type="button" id="btn-fav-now" class="icon-btn" aria-label="Favoritar" title="Favoritar">♡</button>
+        </div>
+        <div class="player-controls">
+          <button type="button" id="btn-shuffle" class="ctrl tiny" aria-label="Aleatório" title="Aleatório" aria-pressed="false">🔀</button>
+          <span id="time-cur" class="time">0:00</span>
+          <button type="button" id="btn-prev" class="ctrl" aria-label="Anterior">⏮</button>
+          <button type="button" id="btn-play" class="ctrl play" aria-label="Play">▶</button>
+          <button type="button" id="btn-next" class="ctrl" aria-label="Próxima">⏭</button>
+          <span id="time-dur" class="time">0:00</span>
+          <button type="button" id="btn-repeat" class="ctrl tiny" aria-label="Repetir" title="Repetir" aria-pressed="false">🔁</button>
+        </div>
+        <div class="player-extra">
+          <button type="button" id="btn-offline" class="btn ghost small" hidden>Baixar para ouvir offline</button>
+        </div>
+      </footer>
+    </section>
+  </div>
+
+  <audio id="audio" preload="metadata"></audio>
+
+  <!-- Modal simples -->
+  <dialog id="modal">
+    <form method="dialog" id="modal-form">
+      <h3 id="modal-title">Novo</h3>
+      <input id="modal-input" type="text" required maxlength="40" placeholder="Nome" />
+      <div class="modal-actions">
+        <button type="button" id="modal-cancel" class="btn ghost">Cancelar</button>
+        <button type="submit" class="btn">Salvar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Toast add to playlist -->
+  <dialog id="modal-add">
+    <form method="dialog" id="add-form">
+      <h3>Adicionar à playlist</h3>
+      <ul id="add-playlist-choices" class="choice-list"></ul>
+      <button type="submit" value="cancel" class="btn ghost block">Cancelar</button>
+    </form>
+  </dialog>
+  <script src="ranking-sertanejo.js" defer></script>
+  <script src="offline-audio.js" defer></script>
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script src="app.js" defer></script>
+</body>
+</html>

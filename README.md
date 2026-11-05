@@ -31,7 +31,11 @@ O arquivo `.nojekyll` já está incluído.
 - Playlists criáveis (localStorage)
 - Perfis simples da família (localStorage)
 - Tela **Créditos** com licenças
+- Aba **Top 50 Sertanejo** (embeds YouTube oficiais — só com o app aberto; sem download)
+- Aba **Rádios**: streams HTTPS ao vivo de emissoras sertanejas BR (Radio Browser API); toca via `<audio>` + Media Session; **não** baixamos/hospedamos músicas protegidas
 
 ## Músicas e licenças
 
 12 faixas SoundHelix Song 1–12 — exemplos gratuitos de demonstração disponibilizados em soundhelix.com. Detalhes na tela Créditos do app.
+
+Rádios: apenas URLs de stream públicas/HTTPS das próprias emissoras (verificadas). Nada de áudio protegido é hospedado neste repositório.

@@ -47,13 +47,34 @@
     })) : [];
   }
 
+  function radioTracks() {
+    const data = window.SDF_RADIOS;
+    const fallbackLogo = (window.__SDF_BASE__ || './') + 'icons/icon-192.png';
+    return (data && data.stations) ? data.stations.map((s) => ({
+      id: s.id,
+      title: s.title || s.name,
+      artist: s.artist || 'Rádio ao vivo',
+      mood: 'ao vivo',
+      url: s.url,
+      logo: s.logo || s.thumbnail || fallbackLogo,
+      thumbnail: s.logo || s.thumbnail || fallbackLogo,
+      thumbnailHigh: s.logo || s.thumbnail || fallbackLogo,
+      homepage: s.homepage || '',
+      color: s.color || '#ff8a5c',
+      source: 'radio',
+      youtubeId: null,
+      live: true,
+    })) : [];
+  }
+
   const trackById = Object.fromEntries(
-    [...TRACKS, ...sertanejoTracks()].map((t) => [t.id, t])
+    [...TRACKS, ...sertanejoTracks(), ...radioTracks()].map((t) => [t.id, t])
   );
 
-  // refresh catalog when ranking script loaded
+  // refresh catalog when ranking/radios scripts loaded
   function refreshCatalog() {
     sertanejoTracks().forEach((t) => { trackById[t.id] = t; });
+    radioTracks().forEach((t) => { trackById[t.id] = t; });
   }
 
 
@@ -108,6 +129,8 @@
     creditsList: $('#credits-list'),
     sertanejoList: $('#sertanejo-list'),
     sertanejoSource: $('#sertanejo-source'),
+    radiosList: $('#radios-list'),
+    radiosSource: $('#radios-source'),
 
     creditsChartNote: $('#credits-chart-note'),
     ytDock: $('#yt-player-dock'),
@@ -536,6 +559,36 @@
     });
   }
 
+  function renderRadios() {
+    const data = window.SDF_RADIOS;
+    if (!data || !els.radiosList) return;
+    if (els.radiosSource) {
+      els.radiosSource.innerHTML =
+        (data.sourceName ? escapeHtml(data.sourceName) : 'Radio Browser') +
+        (data.sourceDateLabel ? ' · ' + escapeHtml(data.sourceDateLabel) : '') +
+        (data.disclaimer ? '<br>' + escapeHtml(data.disclaimer) : '');
+    }
+    const cur = currentTrack();
+    const fallbackLogo = (window.__SDF_BASE__ || './') + 'icons/icon-192.png';
+    els.radiosList.innerHTML = radioTracks().map((t) => {
+      const playing = cur && cur.id === t.id ? ' playing' : '';
+      const logo = t.logo || t.thumbnail || fallbackLogo;
+      return (
+        '<li class="radio-card' + playing + '" data-id="' + escapeHtml(t.id) + '">' +
+          '<img class="radio-logo" src="' + escapeHtml(logo) + '" alt="" loading="lazy" ' +
+            'onerror="this.onerror=null;this.src=\'' + fallbackLogo + '\'">' +
+          '<button type="button" class="radio-meta" data-action="play">' +
+            '<strong>' + escapeHtml(t.title) + '</strong>' +
+            '<span>' + escapeHtml(t.artist) + (t.homepage ? ' · ao vivo' : ' · stream HTTPS') + '</span>' +
+          '</button>' +
+          '<button type="button" class="radio-play" data-action="play" aria-label="Ouvir ' + escapeHtml(t.title) + '">' +
+            (playing ? '⏸' : '▶') +
+          '</button>' +
+        '</li>'
+      );
+    }).join('');
+  }
+
   function renderCredits() {
     els.creditsList.innerHTML = TRACKS.map(
       (t) => `
@@ -556,6 +609,7 @@
     renderFavorites();
     renderCredits();
     renderSertanejo();
+    renderRadios();
     highlightPlaying();
   }
 
@@ -576,6 +630,7 @@
     if (name === 'favorites') renderFavorites();
     if (name === 'search') renderSearch(els.searchInput.value);
     if (name === 'sertanejo') renderSertanejo();
+    if (name === 'radios') renderRadios();
   }
 
   function showCredits() {
@@ -632,6 +687,11 @@
     });
     $$('.chart-row').forEach((el) => {
       el.classList.toggle('playing', !!(t && el.dataset.id === t.id));
+    });
+    $$('.radio-card').forEach((el) => {
+      el.classList.toggle('playing', !!(t && el.dataset.id === t.id));
+      const playBtn = el.querySelector('.radio-play');
+      if (playBtn) playBtn.textContent = (t && el.dataset.id === t.id && state.playing) ? '⏸' : '▶';
     });
   }
 
@@ -712,7 +772,7 @@
   function updateOfflineButton() {
     if (!els.btnOffline) return;
     const t = currentTrack();
-    const can = t && t.source !== 'youtube' && !t.youtubeId;
+    const can = t && t.source !== 'youtube' && t.source !== 'radio' && !t.youtubeId && !t.live;
     els.btnOffline.hidden = !can;
     if (!can) return;
     if (t.source === 'import' || String(t.id).startsWith('imp_')) {
@@ -741,7 +801,7 @@
       navigator.mediaSession.metadata = new MediaMetadata({
         title: track.title || 'Som da Família',
         artist: track.artist || '',
-        album: track.source === 'youtube' ? 'Top 50 (só com app aberto)' : 'Som da Família',
+        album: track.source === 'youtube' ? 'Top 50 (só com app aberto)' : (track.source === 'radio' ? 'Rádio ao vivo' : 'Som da Família'),
         artwork,
       });
       navigator.mediaSession.playbackState = state.playing ? 'playing' : 'paused';
@@ -767,7 +827,7 @@
       playYoutubeTrack(track);
       return;
     }
-    // HTML audio (livres / importados) — Media Session + offline
+    // HTML audio (livres / importados / rádios ao vivo) — Media Session
     destroyYtPlayer();
     state.engine = 'audio';
     updateOfflineButton();
@@ -776,7 +836,8 @@
       try {
         revokeObjectUrls();
         let src = track.url;
-        if (window.SDFOffline) {
+        // Rádios: stream ao vivo HTTPS — nunca cache/offline
+        if (track.source !== 'radio' && !track.live && window.SDFOffline) {
           const resolved = await SDFOffline.resolvePlayableUrl(track);
           if (resolved) {
             src = resolved;
@@ -785,11 +846,14 @@
         }
         if (!src) throw new Error('Sem URL de áudio');
         audio.src = src;
+        // live streams: help browsers keep reading
+        try { audio.load(); } catch (e) {}
         await audio.play();
         state.playing = true;
         els.btnPlay.textContent = '⏸';
         els.btnPlay.setAttribute('aria-label', 'Pausar');
         updateMediaSession(track);
+        if (track.source === 'radio') renderRadios();
       } catch (err) {
         console.warn('Falha ao tocar:', err);
         state.playing = false;
@@ -811,10 +875,13 @@
 
   function togglePlay() {
     if (!currentTrack()) {
-      // se estiver na aba Top 50, toca a fila sertaneja
+      // se estiver na aba Top 50 / Rádios, toca a fila correspondente
       const s = sertanejoTracks();
+      const r = radioTracks();
       if (s.length && document.getElementById('tab-sertanejo') && !document.getElementById('tab-sertanejo').hidden) {
         playIndex(0, s);
+      } else if (r.length && document.getElementById('tab-radios') && !document.getElementById('tab-radios').hidden) {
+        playIndex(0, r);
       } else {
         playIndex(0, TRACKS);
       }
@@ -876,11 +943,12 @@
     playIndex(state.index + 1);
   }
   function prev() {
+    const curLive = currentTrack();
     if (state.engine === 'youtube' && ytPlayer && ytPlayer.getCurrentTime) {
       try {
         if (ytPlayer.getCurrentTime() > 3) { ytPlayer.seekTo(0, true); return; }
       } catch (e) {}
-    } else if (audio.currentTime > 3) {
+    } else if (!(curLive && (curLive.source === 'radio' || curLive.live)) && audio.currentTime > 3) {
       audio.currentTime = 0;
       return;
     }
@@ -1080,6 +1148,21 @@
     });
   }
 
+  if (els.radiosList) {
+    els.radiosList.addEventListener('click', (e) => {
+      const row = e.target.closest('.radio-card');
+      if (!row) return;
+      const id = row.dataset.id;
+      const cur = currentTrack();
+      if (cur && cur.id === id && state.playing) {
+        pause();
+        renderRadios();
+        return;
+      }
+      playTrackId(id, radioTracks());
+    });
+  }
+
   els.btnPlay.addEventListener('click', togglePlay);
   els.btnNext.addEventListener('click', next);
   els.btnPrev.addEventListener('click', prev);
@@ -1104,8 +1187,10 @@
   if (els.btnOffline) {
     els.btnOffline.addEventListener('click', async () => {
       const t = currentTrack();
-      if (!t || t.youtubeId || t.source === 'youtube') {
-        alert('Não baixamos áudio do YouTube. Use a biblioteca livre ou importe um MP3.');
+      if (!t || t.youtubeId || t.source === 'youtube' || t.source === 'radio' || t.live) {
+        alert(t && (t.source === 'radio' || t.live)
+          ? 'Rádios ao vivo não são baixadas. Apenas stream HTTPS oficial.'
+          : 'Não baixamos áudio do YouTube. Use a biblioteca livre ou importe um MP3.');
         return;
       }
       if (t.source === 'import') return;
@@ -1156,6 +1241,13 @@
 
   audio.addEventListener('timeupdate', () => {
     if (state.seeking) return;
+    const t = currentTrack();
+    if (t && (t.source === 'radio' || t.live)) {
+      els.timeCur.textContent = 'Ao vivo';
+      els.timeDur.textContent = '∞';
+      els.seek.value = 0;
+      return;
+    }
     const dur = audio.duration || 0;
     const cur = audio.currentTime || 0;
     els.timeCur.textContent = formatTime(cur);
@@ -1169,6 +1261,8 @@
 
   els.seek.addEventListener('pointerdown', () => { state.seeking = true; });
   function seekToFraction(frac) {
+    const t = currentTrack();
+    if (t && (t.source === 'radio' || t.live)) return; // live: sem seek
     if (state.engine === 'youtube' && ytPlayer && ytPlayer.getDuration) {
       const dur = ytPlayer.getDuration() || 0;
       if (dur) ytPlayer.seekTo(frac * dur, true);
@@ -1212,6 +1306,7 @@
   renderProfiles();
   renderCredits();
   renderSertanejo();
+  renderRadios();
   updateTransportUI();
   refreshImportsAndOffline();
   const saved = localStorage.getItem(STORAGE.current);
@@ -1220,5 +1315,5 @@
   }
 
   // Expose for tests
-  window.SomDaFamilia = { TRACKS, sertanejoTracks, playTrackId, playIndex, next, prev, state, audio, getYt: () => ytPlayer, getYtLast: () => window.__SDF_YT_LAST__, refreshImportsAndOffline };
+  window.SomDaFamilia = { TRACKS, sertanejoTracks, radioTracks, playTrackId, playIndex, next, prev, state, audio, getYt: () => ytPlayer, getYtLast: () => window.__SDF_YT_LAST__, refreshImportsAndOffline };
 })();
